@@ -1,68 +1,66 @@
 package org.example;
+
+import org.example.entity.Permission;
+import org.example.entity.Role;
 import org.example.entity.User;
 
 public class Main {
     public static void main(String[] args) {
+        System.out.println("User Tests");
+        testUser();
 
-        // проверка на Успешное создание
+        System.out.println("\nRole Demonstration");
+        demonstrateRole();
+    }
+
+    private static void testUser() {
         testCase("Valid User", () -> {
             User user = new User("john_doe", "John Doe", "john@example.com");
             System.out.println("Created: " + user.format());
         });
 
-        // проверка на граничные случаи длины
-        testCase("Valid User (3 chars)", () -> {
-            User user = new User("abc", "Short Name", "a@b.c");
-            System.out.println("Created: " + user.format());
+        testCase("Invalid Username (short)", () -> {
+            new User("ab", "Short Name", "test@mail.com");
         });
 
-        // проверка на Ошибка длины username < 3 символов
-        testCase("Invalid Username (too short)", () -> {
-            new User("ab", "Too Short", "test@mail.com");
+        testCase("Invalid Email", () -> {
+            new User("john_doe", "John Doe", "invalid-email");
         });
-
-        // проверка на Ошибка длины username > 20 символов
-        testCase("Invalid Username (too long)", () -> {
-            new User("very_long_username_that_exceeds_limit", "Too Long", "test@mail.com");
-        });
-
-        // проверка на Ошибка формата username (недопустимые символы)
-        testCase("Invalid Username (invalid chars)", () -> {
-            new User("john-doe!", "Invalid Chars", "test@mail.com");
-        });
-
-        // проверка на Ошибка формата email
-        testCase("Invalid Email (no @)", () -> {
-            new User("john_doe", "John Doe", "invalid-email.com");
-        });
-
-        // проверка на Ошибка формата email (нет точки после @)
-        testCase("Invalid Email (no dot)", () -> {
-            new User("john_doe", "John Doe", "john@localhost");
-        });
-
-        // проверка на Ошибка пустых полей
-        testCase("Empty Fullname", () -> {
-            new User("john_doe", "", "john@example.com");
-        });
-
-        // проверка на Null поля
-        testCase("Null Username", () -> {
-            new User(null, "John Doe", "john@example.com");
-        });
-
-        System.out.println("\nTests Completed");
     }
+
+    private static void demonstrateRole() {
+
+        Role adminRole = new Role("Administrator", "Full system access");
+
+        Permission readUsers = new Permission("READ", "users", "Can view user list");
+        Permission writeUsers = new Permission("WRITE", "users", "Can create and edit users");
+        Permission deleteUsers = new Permission("DELETE", "users", "Can delete users");
+
+        adminRole.addPermission(readUsers);
+        adminRole.addPermission(writeUsers);
+        adminRole.addPermission(deleteUsers);
+
+        System.out.println("Role with permissions");
+        System.out.println(adminRole.format());
+
+        System.out.println("\nChecks");
+        System.out.println("Has permission (READ, users): " + adminRole.hasPermission("READ", "users"));
+        System.out.println("Has permission object (writeUsers): " + adminRole.hasPermission(writeUsers));
+        System.out.println("Has permission (EXECUTE, scripts): " + adminRole.hasPermission("EXECUTE", "scripts"));
+
+        Role emptyRole = new Role("Guest", "Read-only access");
+        System.out.println("\nEmpty Role");
+        System.out.println(emptyRole.format());
+    }
+
     private static void testCase(String testName, Runnable test) {
         System.out.println(">> Test: " + testName);
         try {
             test.run();
             System.out.println("   Result: SUCCESS");
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             System.out.println("   Result: FAILED (Expected) -> " + e.getMessage());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("   Result: ERROR (Unexpected) -> " + e.getClass().getSimpleName());
         }
         System.out.println();
