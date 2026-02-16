@@ -1,9 +1,10 @@
 package org.example;
 
-import org.example.entity.AssignmentMetadata;
-import org.example.entity.Permission;
-import org.example.entity.Role;
-import org.example.entity.User;
+import org.example.entity.*;
+import org.example.assignment.*;
+
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Main {
     static void main(String[] args) {
@@ -15,6 +16,9 @@ public class Main {
 
         System.out.println("\nAssignmentMetadata Demonstration");
         demonstrateMetadata();
+
+        System.out.println("\nAssignments Demonstration");
+        demonstrateAssignments();
     }
 
     private static void testUser() {
@@ -67,6 +71,34 @@ public class Main {
         AssignmentMetadata meta3 = AssignmentMetadata.now("system", null);
         System.out.println("\nMetadata 3 (No reason):");
         System.out.println(meta3.format());
+    }
+    private static void demonstrateAssignments() {
+        User user = new User("alice", "Alice Smith", "alice@example.com");
+        Role role = new Role("Editor", "Content editor");
+        AssignmentMetadata meta = AssignmentMetadata.now("admin", "Project assignment");
+
+        System.out.println("Permanent Assignment");
+        PermanentAssignment permAssign = new PermanentAssignment(user, role, meta);
+        System.out.println(permAssign.summary());
+        System.out.println("Is Active: " + permAssign.isActive());
+
+        System.out.println("\nRevoking permanent assignment...");
+        permAssign.revoke();
+        System.out.println(permAssign.summary());
+        System.out.println("Is Active: " + permAssign.isActive());
+
+        System.out.println("\nTemporary Assignment (Future Expiry)");
+        String futureDate = LocalDateTime.now().plusDays(5).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        TemporaryAssignment tempAssign = new TemporaryAssignment(user, role, meta, futureDate, false);
+        System.out.println(tempAssign.summary());
+        System.out.println("Is Active: " + tempAssign.isActive());
+        System.out.println("Is Expired: " + tempAssign.isExpired());
+
+        System.out.println("\nTemporary Assignment (Past Expiry - Expired)");
+        String pastDate = LocalDateTime.now().minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        TemporaryAssignment expiredAssign = new TemporaryAssignment(user, role, meta, pastDate, false);
+        System.out.println(expiredAssign.summary());
+        System.out.println("Is Active: " + expiredAssign.isActive());
     }
 
     private static void testCase(String testName, Runnable test) {
