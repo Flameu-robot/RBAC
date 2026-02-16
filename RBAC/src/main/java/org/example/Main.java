@@ -1,16 +1,20 @@
 package org.example;
 
+import org.example.entity.AssignmentMetadata;
 import org.example.entity.Permission;
 import org.example.entity.Role;
 import org.example.entity.User;
 
 public class Main {
-    public static void main(String[] args) {
+    static void main(String[] args) {
         System.out.println("User Tests");
         testUser();
 
         System.out.println("\nRole Demonstration");
         demonstrateRole();
+
+        System.out.println("\nAssignmentMetadata Demonstration");
+        demonstrateMetadata();
     }
 
     private static void testUser() {
@@ -19,13 +23,11 @@ public class Main {
             System.out.println("Created: " + user.format());
         });
 
-        testCase("Invalid Username (short)", () -> {
-            new User("ab", "Short Name", "test@mail.com");
-        });
+        testCase("Invalid Username (short)", () ->
+                new User("ab", "Short Name", "test@mail.com"));
 
-        testCase("Invalid Email", () -> {
-            new User("john_doe", "John Doe", "invalid-email");
-        });
+        testCase("Invalid Email", () ->
+                new User("john_doe", "John Doe", "invalid-email"));
     }
 
     private static void demonstrateRole() {
@@ -51,6 +53,20 @@ public class Main {
         Role emptyRole = new Role("Guest", "Read-only access");
         System.out.println("\nEmpty Role");
         System.out.println(emptyRole.format());
+    }
+
+    private static void demonstrateMetadata() {
+        AssignmentMetadata meta1 = AssignmentMetadata.now("admin", "Initial role setup");
+        System.out.println("Metadata 1 (Current time):");
+        System.out.println(meta1.format());
+
+        AssignmentMetadata meta2 = new AssignmentMetadata("super_admin", "2023-10-05T14:30:00", "System migration");
+        System.out.println("\nMetadata 2 (Historical date):");
+        System.out.println(meta2.format());
+
+        AssignmentMetadata meta3 = AssignmentMetadata.now("system", null);
+        System.out.println("\nMetadata 3 (No reason):");
+        System.out.println(meta3.format());
     }
 
     private static void testCase(String testName, Runnable test) {
