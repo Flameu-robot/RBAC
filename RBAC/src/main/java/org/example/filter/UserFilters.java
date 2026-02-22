@@ -1,6 +1,5 @@
 package org.example.filter;
 
-import org.example.entity.User;
 import java.util.Objects;
 
 public class UserFilters {
