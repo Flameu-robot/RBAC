@@ -5,6 +5,11 @@ plugins {
 group = "org.example"
 version = "1.0-SNAPSHOT"
 
+java {
+    sourceCompatibility = JavaVersion.toVersion(25)
+    targetCompatibility = JavaVersion.toVersion(25)
+}
+
 repositories {
     mavenCentral()
 }
