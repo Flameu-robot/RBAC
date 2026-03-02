@@ -1,0 +1,1 @@
+![CI](https://github.com/Flameu-robot/RBAC/actions/workflows/ci.yml/badge.svg)
