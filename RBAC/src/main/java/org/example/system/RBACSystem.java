@@ -3,6 +3,8 @@ package org.example.system;
 import org.example.entity.*;
 import org.example.repository.*;
 import org.example.assignment.*;
+import org.example.utils.AuditLog;
+import org.example.utils.BackgroundExecutor;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -12,12 +14,16 @@ public class RBACSystem {
     private final UserManager userManager;
     private final RoleManager roleManager;
     private final AssignmentManager assignmentManager;
+    private final BackgroundExecutor backgroundExecutor;
+    private final AuditLog auditLog;
     private String currentUser;
 
     public RBACSystem() {
         this.userManager = new UserManager();
         this.roleManager = new RoleManager();
         this.assignmentManager = new AssignmentManager(userManager, roleManager);
+        this.backgroundExecutor = new BackgroundExecutor(4);
+        this.auditLog = new AuditLog();
     }
 
     public UserManager getUserManager() {
@@ -30,6 +36,14 @@ public class RBACSystem {
 
     public AssignmentManager getAssignmentManager() {
         return assignmentManager;
+    }
+
+    public BackgroundExecutor getBackgroundExecutor() {
+        return backgroundExecutor;
+    }
+
+    public AuditLog getAuditLog() {
+        return auditLog;
     }
 
     public String getCurrentUser() {
@@ -86,6 +100,8 @@ public class RBACSystem {
         AssignmentMetadata metadata = AssignmentMetadata.now("system", "Initial setup");
         PermanentAssignment assignment = new PermanentAssignment(adminUser, admin, metadata);
         assignmentManager.add(assignment);
+
+        auditLog.logAsync("INIT", "system", "system", "System initialized with default data");
     }
 
     public String generateStatistics() {
@@ -127,8 +143,7 @@ public class RBACSystem {
 
         if (top3.isEmpty()) {
             sb.append("-+   No active assignments\n");
-        }
-        else {
+        } else {
             int rank = 1;
             for (Map.Entry<String, Long> entry : top3) {
                 sb.append("-+   ").append(rank++).append(". ")
@@ -139,5 +154,11 @@ public class RBACSystem {
         }
 
         return sb.toString();
+    }
+
+    public void shutdown() {
+        auditLog.logAsync("SHUTDOWN", currentUser != null ? currentUser : "system", "system", "System shutdown");
+        auditLog.shutdown();
+        backgroundExecutor.shutdown();
     }
 }

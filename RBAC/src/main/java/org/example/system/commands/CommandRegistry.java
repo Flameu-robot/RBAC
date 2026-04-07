@@ -5,7 +5,12 @@ import org.example.repository.*;
 import org.example.assignment.*;
 import org.example.filter.*;
 import org.example.system.RBACSystem;
+import org.example.utils.AuditLog;
+import org.example.utils.ReportGenerator;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -733,6 +738,8 @@ public class CommandRegistry {
 
         parser.registerCommand("exit", "Exit the program", (scanner, system) -> {
             if (confirm(scanner, "Are you sure you want to exit?")) {
+                out("Shutting down...");
+                system.shutdown();
                 out("Goodbye!");
                 System.exit(0);
             } else {
@@ -745,5 +752,163 @@ public class CommandRegistry {
 
         parser.registerCommand("load", "Load data from file (not implemented)", (scanner, system) ->
                 out("Load feature is not implemented."));
+
+        parser.registerCommand("report-users-async", "Generate user report asynchronously", (scanner, system) -> {
+            out("Starting async user report generation...");
+
+            system.getAuditLog().logAsync("REPORT_START",
+                    system.getCurrentUser(),
+                    "reports",
+                    "Async user report generation started");
+
+            system.getBackgroundExecutor().submit(() -> {
+                try {
+                    ReportGenerator generator = new ReportGenerator();
+                    String report = generator.generateUserReportParallel(
+                            system.getUserManager(),
+                            system.getAssignmentManager()
+                    );
+
+                    System.out.println("\n" + report);
+
+                    system.getAuditLog().logAsync("REPORT_COMPLETE",
+                            system.getCurrentUser(),
+                            "reports",
+                            "User report generated successfully");
+
+                } catch (Exception e) {
+                    System.out.println("-+ Error generating report: " + e.getMessage());
+                    system.getAuditLog().logAsync("REPORT_ERROR",
+                            system.getCurrentUser(),
+                            "reports",
+                            "Report generation failed: " + e.getMessage());
+                }
+            });
+
+            out("Report generation started in background. Result will appear shortly.");
+        });
+
+        parser.registerCommand("report-matrix-async", "Generate permission matrix asynchronously", (scanner, system) -> {
+            out("Starting async permission matrix generation...");
+
+            system.getAuditLog().logAsync("MATRIX_START",
+                    system.getCurrentUser(),
+                    "reports",
+                    "Async permission matrix generation started");
+
+            system.getBackgroundExecutor().submit(() -> {
+                try {
+                    ReportGenerator generator = new ReportGenerator();
+                    String matrix = generator.generatePermissionMatrixParallel(
+                            system.getUserManager(),
+                            system.getAssignmentManager()
+                    );
+
+                    System.out.println("\n" + matrix);
+
+                    system.getAuditLog().logAsync("MATRIX_COMPLETE",
+                            system.getCurrentUser(),
+                            "reports",
+                            "Permission matrix generated successfully");
+
+                } catch (Exception e) {
+                    System.out.println("-+ Error generating matrix: " + e.getMessage());
+                    system.getAuditLog().logAsync("MATRIX_ERROR",
+                            system.getCurrentUser(),
+                            "reports",
+                            "Matrix generation failed: " + e.getMessage());
+                }
+            });
+
+            out("Matrix generation started in background.");
+        });
+
+        parser.registerCommand("save-async", "Save data to file asynchronously", (scanner, system) -> {
+            String filename = ask(scanner, "Enter filename (default: rbac_data.txt): ");
+            if (filename.isEmpty()) {
+                filename = "rbac_data.txt";
+            }
+
+            final String finalFilename = filename;
+            out("Starting async save to '" + finalFilename + "'...");
+
+            system.getAuditLog().logAsync("SAVE_START",
+                    system.getCurrentUser(),
+                    finalFilename,
+                    "Async save started");
+
+            system.getBackgroundExecutor().submit(() -> {
+                try (PrintWriter writer = new PrintWriter(new FileWriter(finalFilename))) {
+
+                    writer.println("=== USERS ===");
+                    writer.println("Total: " + system.getUserManager().count());
+                    writer.println();
+                    for (User u : system.getUserManager().findAll()) {
+                        writer.println(u.format());
+                    }
+
+                    writer.println("\n=== ROLES ===");
+                    writer.println("Total: " + system.getRoleManager().count());
+                    writer.println();
+                    for (Role r : system.getRoleManager().findAll()) {
+                        writer.println(r.getName() + " - " + r.getDescription());
+                        writer.println("  Permissions: " + r.getPermissions().size());
+                        for (Permission p : r.getPermissions()) {
+                            writer.println("    - " + p.format());
+                        }
+                        writer.println();
+                    }
+
+                    writer.println("=== ASSIGNMENTS ===");
+                    writer.println("Total: " + system.getAssignmentManager().count());
+                    writer.println();
+                    for (RoleAssignment a : system.getAssignmentManager().findAll()) {
+                        writer.printf("%s -> %s [%s] %s%n",
+                                a.user().username(),
+                                a.role().getName(),
+                                a.assignmentType(),
+                                a.isActive() ? "ACTIVE" : "INACTIVE");
+                        writer.println("  " + a.metadata().format());
+                        writer.println();
+                    }
+
+                    System.out.println("-+ Data saved to '" + finalFilename + "'");
+
+                    system.getAuditLog().logAsync("SAVE_COMPLETE",
+                            system.getCurrentUser(),
+                            finalFilename,
+                            "Data saved successfully");
+
+                } catch (IOException e) {
+                    System.out.println("-+ Error saving data: " + e.getMessage());
+                    system.getAuditLog().logAsync("SAVE_ERROR",
+                            system.getCurrentUser(),
+                            finalFilename,
+                            "Save failed: " + e.getMessage());
+                }
+            });
+
+            out("Save started in background.");
+        });
+
+        parser.registerCommand("audit-status", "Show audit log status", (scanner, system) -> {
+            AuditLog auditLog = system.getAuditLog();
+            out("Audit Log Status:");
+            outIndent("Processor running: " + auditLog.isProcessorRunning());
+            outIndent("Pending entries: " + auditLog.getPendingCount());
+            outIndent("Total entries: " + auditLog.getAll().size());
+        });
+
+        parser.registerCommand("audit-log", "Show audit log", (scanner, system) -> {
+            system.getAuditLog().printLog();
+        });
+
+        parser.registerCommand("audit-save", "Save audit log to file", (scanner, system) -> {
+            String filename = ask(scanner, "Enter filename (default: audit.log): ");
+            if (filename.isEmpty()) {
+                filename = "audit.log";
+            }
+            system.getAuditLog().saveToFile(filename);
+        });
     }
 }
