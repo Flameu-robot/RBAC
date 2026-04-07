@@ -5,11 +5,12 @@ import org.example.assignment.*;
 import org.example.filter.AssignmentFilter;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class AssignmentManager implements Repository<RoleAssignment> {
 
-    private final Map<String, RoleAssignment> assignments = new HashMap<>();
+    private final Map<String, RoleAssignment> assignments = new ConcurrentHashMap<>();
 
     private final UserManager userManager;
     private final RoleManager roleManager;
@@ -20,7 +21,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
     }
 
     @Override
-    public void add(RoleAssignment item) {
+    public synchronized void add(RoleAssignment item) {
         Objects.requireNonNull(item, "Assignment cannot be null");
 
         if (!userManager.exists(item.user().username())) {
@@ -124,7 +125,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
                 .collect(Collectors.toSet());
     }
 
-    public void revokeAssignment(String assignmentId) {
+    public synchronized void revokeAssignment(String assignmentId) {
         RoleAssignment assignment = assignments.get(assignmentId);
         if (assignment == null) {
             throw new IllegalArgumentException("Assignment '" + assignmentId + "' not found");
@@ -137,7 +138,7 @@ public class AssignmentManager implements Repository<RoleAssignment> {
         }
     }
 
-    public void extendTemporaryAssignment(String assignmentId, String newExpirationDate) {
+    public synchronized void extendTemporaryAssignment(String assignmentId, String newExpirationDate) {
         RoleAssignment assignment = assignments.get(assignmentId);
         if (assignment == null) {
             throw new IllegalArgumentException("Assignment '" + assignmentId + "' not found");

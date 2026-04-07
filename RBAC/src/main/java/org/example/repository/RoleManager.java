@@ -5,16 +5,17 @@ import org.example.entity.Role;
 import org.example.filter.RoleFilter;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class RoleManager implements Repository<Role> {
 
-    private final Map<String, Role> rolesById = new HashMap<>();
+    private final Map<String, Role> rolesById = new ConcurrentHashMap<>();
 
-    private final Map<String, Role> rolesByName = new HashMap<>();
+    private final Map<String, Role> rolesByName = new ConcurrentHashMap<>();
 
     @Override
-    public void add(Role item) {
+    public synchronized void add(Role item) {
         Objects.requireNonNull(item, "Role cannot be null");
 
         if (rolesById.containsKey(item.getId())) {
@@ -29,7 +30,7 @@ public class RoleManager implements Repository<Role> {
     }
 
     @Override
-    public boolean remove(Role item) {
+    public synchronized boolean remove(Role item) {
         if (item == null) return false;
 
         Role removed = rolesById.remove(item.getId());
@@ -56,7 +57,7 @@ public class RoleManager implements Repository<Role> {
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
         rolesById.clear();
         rolesByName.clear();
     }

@@ -4,14 +4,15 @@ import org.example.entity.User;
 import org.example.filter.UserFilter;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class UserManager implements Repository<User> {
 
-    private final Map<String, User> users = new HashMap<>();
+    private final Map<String, User> users = new ConcurrentHashMap<>();
 
     @Override
-    public void add(User item) {
+    public synchronized void add(User item) {
         Objects.requireNonNull(item, "User cannot be null");
         if (users.containsKey(item.username())) {
             throw new IllegalArgumentException("User with username '" + item.username() + "' already exists");
@@ -72,7 +73,7 @@ public class UserManager implements Repository<User> {
         return users.containsKey(username);
     }
 
-    public void update(String username, String newFullName, String newEmail) {
+    public synchronized void update(String username, String newFullName, String newEmail) {
         User existingUser = users.get(username);
         if (existingUser == null) {
             throw new IllegalArgumentException("User '" + username + "' not found");
