@@ -7,9 +7,7 @@ import org.example.repository.*;
 import org.example.system.RBACSystem;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class StressTestWorker implements Runnable {
 

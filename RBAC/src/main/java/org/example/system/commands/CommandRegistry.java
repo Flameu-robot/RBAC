@@ -8,7 +8,9 @@ import org.example.system.RBACSystem;
 import org.example.test.StressTest;
 import org.example.test.StressTestResult;
 import org.example.utils.AuditLog;
+import org.example.utils.ConsoleGuard;
 import org.example.utils.ReportGenerator;
+import org.example.utils.ScheduledTaskService;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -31,7 +33,12 @@ public class CommandRegistry {
 
     private static String ask(Scanner scanner, String prompt) {
         System.out.print("-+ " + prompt);
-        return scanner.nextLine().trim();
+        ConsoleGuard.beginInput();
+        try {
+            return scanner.nextLine().trim();
+        } finally {
+            ConsoleGuard.endInput();
+        }
     }
 
     private static void out(String message) {
@@ -43,8 +50,13 @@ public class CommandRegistry {
     }
 
     private static boolean confirm(Scanner scanner, String message) {
-        String answer = ask(scanner, message + " (да/нет): ");
-        return answer.equalsIgnoreCase("да");
+        System.out.print("-+ " + message + " (y/n): ");
+        ConsoleGuard.beginInput();
+        try {
+            return scanner.nextLine().trim().equalsIgnoreCase("y");
+        } finally {
+            ConsoleGuard.endInput();
+        }
     }
 
     private static int askNumber(Scanner scanner, String prompt, int min, int max) {
@@ -943,6 +955,36 @@ public class CommandRegistry {
                 out("Stress test interrupted: " + e.getMessage());
                 Thread.currentThread().interrupt();
             }
+        });
+
+        parser.registerCommand("scheduler-start", "Start scheduled tasks", (scanner, system) -> {
+            String input = ask(scanner, "Interval in seconds (default 30): ");
+            int interval = 30;
+            try {
+                int parsed = Integer.parseInt(input.trim());
+                if (parsed > 0) interval = parsed;
+            } catch (NumberFormatException ignored) {}
+
+            system.getScheduledTaskService().startAll(interval);
+            system.getAuditLog().logAsync("SCHEDULER_START",
+                    system.getCurrentUser(), "scheduler",
+                    "Started with interval=" + interval + "s");
+        });
+
+        parser.registerCommand("scheduler-stop", "Stop scheduled tasks", (scanner, system) -> {
+            system.getScheduledTaskService().stopCleanupTask();
+            system.getScheduledTaskService().stopStatsTask();
+            system.getAuditLog().logAsync("SCHEDULER_STOP",
+                    system.getCurrentUser(), "scheduler", "Stopped");
+        });
+
+        parser.registerCommand("scheduler-status", "Show scheduler status", (scanner, system) -> {
+            ScheduledTaskService svc = system.getScheduledTaskService();
+            out("Scheduler Status:");
+            outIndent("Cleanup task running: " + svc.isCleanupRunning());
+            outIndent("Stats task running:   " + svc.isStatsRunning());
+            outIndent("Total expired cleaned: " + svc.getTotalExpiredCleaned());
+            outIndent("Total stats reports:   " + svc.getTotalStatsReports());
         });
     }
 

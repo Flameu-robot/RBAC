@@ -26,7 +26,6 @@ public class StressTest {
         System.out.println("-+ [StressTest] Starting: "
                 + threadCount + " threads x " + iterationsPerThread + " iterations");
 
-        // Отдельная система — не трогаем рабочую
         RBACSystem system = new RBACSystem();
         system.initialize();
         seedInitialData(system);

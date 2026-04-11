@@ -5,6 +5,7 @@ import org.example.repository.*;
 import org.example.assignment.*;
 import org.example.utils.AuditLog;
 import org.example.utils.BackgroundExecutor;
+import org.example.utils.ScheduledTaskService;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -16,74 +17,49 @@ public class RBACSystem {
     private final AssignmentManager assignmentManager;
     private final BackgroundExecutor backgroundExecutor;
     private final AuditLog auditLog;
+    private final ScheduledTaskService scheduledTaskService;
     private String currentUser;
 
     public RBACSystem() {
-        this.userManager = new UserManager();
-        this.roleManager = new RoleManager();
-        this.assignmentManager = new AssignmentManager(userManager, roleManager);
-        this.backgroundExecutor = new BackgroundExecutor(4);
-        this.auditLog = new AuditLog();
+        this.userManager          = new UserManager();
+        this.roleManager          = new RoleManager();
+        this.assignmentManager    = new AssignmentManager(userManager, roleManager);
+        this.backgroundExecutor   = new BackgroundExecutor(4);
+        this.auditLog             = new AuditLog();
+        this.scheduledTaskService = new ScheduledTaskService(this);
     }
 
-    public UserManager getUserManager() {
-        return userManager;
-    }
-
-    public RoleManager getRoleManager() {
-        return roleManager;
-    }
-
-    public AssignmentManager getAssignmentManager() {
-        return assignmentManager;
-    }
-
-    public BackgroundExecutor getBackgroundExecutor() {
-        return backgroundExecutor;
-    }
-
-    public AuditLog getAuditLog() {
-        return auditLog;
-    }
-
-    public String getCurrentUser() {
-        return currentUser;
-    }
-
-    public void setCurrentUser(String username) {
-        this.currentUser = username;
-    }
+    public UserManager getUserManager()               { return userManager; }
+    public RoleManager getRoleManager()               { return roleManager; }
+    public AssignmentManager getAssignmentManager()   { return assignmentManager; }
+    public BackgroundExecutor getBackgroundExecutor() { return backgroundExecutor; }
+    public AuditLog getAuditLog()                     { return auditLog; }
+    public ScheduledTaskService getScheduledTaskService() { return scheduledTaskService; }
+    public String getCurrentUser()                    { return currentUser; }
+    public void setCurrentUser(String username)       { this.currentUser = username; }
 
     public void initialize() {
-        Permission readUsers = new Permission("READ", "users", "Read user data");
-        Permission writeUsers = new Permission("WRITE", "users", "Modify user data");
-        Permission deleteUsers = new Permission("DELETE", "users", "Delete users");
-
-        Permission readRoles = new Permission("READ", "roles", "Read role data");
-        Permission writeRoles = new Permission("WRITE", "roles", "Modify role data");
-        Permission deleteRoles = new Permission("DELETE", "roles", "Delete roles");
-
-        Permission readReports = new Permission("READ", "reports", "Read reports");
-        Permission writeReports = new Permission("WRITE", "reports", "Create and edit reports");
-        Permission deleteReports = new Permission("DELETE", "reports", "Delete reports");
+        Permission readUsers   = new Permission("READ",   "users",   "Read user data");
+        Permission writeUsers  = new Permission("WRITE",  "users",   "Modify user data");
+        Permission deleteUsers = new Permission("DELETE", "users",   "Delete users");
+        Permission readRoles   = new Permission("READ",   "roles",   "Read role data");
+        Permission writeRoles  = new Permission("WRITE",  "roles",   "Modify role data");
+        Permission deleteRoles = new Permission("DELETE", "roles",   "Delete roles");
+        Permission readReports = new Permission("READ",   "reports", "Read reports");
+        Permission writeReports= new Permission("WRITE",  "reports", "Create and edit reports");
+        Permission deleteReports=new Permission("DELETE", "reports", "Delete reports");
 
         Role admin = new Role("Admin", "Full system access");
-        admin.addPermission(readUsers);
-        admin.addPermission(writeUsers);
-        admin.addPermission(deleteUsers);
-        admin.addPermission(readRoles);
-        admin.addPermission(writeRoles);
-        admin.addPermission(deleteRoles);
-        admin.addPermission(readReports);
-        admin.addPermission(writeReports);
+        admin.addPermission(readUsers);   admin.addPermission(writeUsers);
+        admin.addPermission(deleteUsers); admin.addPermission(readRoles);
+        admin.addPermission(writeRoles);  admin.addPermission(deleteRoles);
+        admin.addPermission(readReports); admin.addPermission(writeReports);
         admin.addPermission(deleteReports);
         roleManager.add(admin);
 
         Role manager = new Role("Manager", "Management access");
-        manager.addPermission(readUsers);
-        manager.addPermission(writeUsers);
-        manager.addPermission(readRoles);
-        manager.addPermission(readReports);
+        manager.addPermission(readUsers);   manager.addPermission(writeUsers);
+        manager.addPermission(readRoles);   manager.addPermission(readReports);
         manager.addPermission(writeReports);
         roleManager.add(manager);
 
@@ -101,23 +77,23 @@ public class RBACSystem {
         PermanentAssignment assignment = new PermanentAssignment(adminUser, admin, metadata);
         assignmentManager.add(assignment);
 
-        auditLog.logAsync("INIT", "system", "system", "System initialized with default data");
+        auditLog.logAsync("INIT", "system", "system", "System initialized");
+
+        scheduledTaskService.startAll(30);
     }
 
     public String generateStatistics() {
         StringBuilder sb = new StringBuilder();
 
-        int totalUsers = userManager.count();
-        int totalRoles = roleManager.count();
+        int totalUsers       = userManager.count();
+        int totalRoles       = roleManager.count();
         int totalAssignments = assignmentManager.count();
-        List<RoleAssignment> active = assignmentManager.getActiveAssignments();
+        List<RoleAssignment> active  = assignmentManager.getActiveAssignments();
         List<RoleAssignment> expired = assignmentManager.getExpiredAssignments();
-        int activeCount = active.size();
+        int activeCount  = active.size();
         int expiredCount = expired.size();
 
-        double avgRoles = totalUsers > 0
-                ? (double) activeCount / totalUsers
-                : 0.0;
+        double avgRoles = totalUsers > 0 ? (double) activeCount / totalUsers : 0.0;
 
         sb.append("-+ System Statistics\n");
         sb.append("-+ Users:       ").append(totalUsers).append("\n");
@@ -132,14 +108,11 @@ public class RBACSystem {
 
         Map<String, Long> roleCounts = active.stream()
                 .collect(Collectors.groupingBy(
-                        a -> a.role().getName(),
-                        Collectors.counting()
-                ));
+                        a -> a.role().getName(), Collectors.counting()));
 
         List<Map.Entry<String, Long>> top3 = roleCounts.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(3)
-                .toList();
+                .limit(3).toList();
 
         if (top3.isEmpty()) {
             sb.append("-+   No active assignments\n");
@@ -152,12 +125,14 @@ public class RBACSystem {
                         .append(" assignment(s)\n");
             }
         }
-
         return sb.toString();
     }
 
     public void shutdown() {
-        auditLog.logAsync("SHUTDOWN", currentUser != null ? currentUser : "system", "system", "System shutdown");
+        auditLog.logAsync("SHUTDOWN",
+                currentUser != null ? currentUser : "system",
+                "system", "System shutdown");
+        scheduledTaskService.shutdown();
         auditLog.shutdown();
         backgroundExecutor.shutdown();
     }
