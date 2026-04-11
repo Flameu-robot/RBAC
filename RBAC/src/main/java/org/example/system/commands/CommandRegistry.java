@@ -5,6 +5,8 @@ import org.example.repository.*;
 import org.example.assignment.*;
 import org.example.filter.*;
 import org.example.system.RBACSystem;
+import org.example.test.StressTest;
+import org.example.test.StressTestResult;
 import org.example.utils.AuditLog;
 import org.example.utils.ReportGenerator;
 
@@ -910,5 +912,47 @@ public class CommandRegistry {
             }
             system.getAuditLog().saveToFile(filename);
         });
+
+        parser.registerCommand("stress-test", "Run concurrent stress test", (scanner, system) -> {
+            out("=== Stress Test Configuration ===");
+
+            String threadsInput = ask(scanner, "Number of threads (default 8): ");
+            String iterInput    = ask(scanner, "Iterations per thread (default 100): ");
+
+            int threads    = parsePositive(threadsInput, 8);
+            int iterations = parsePositive(iterInput, 100);
+
+            out("Starting stress test: " + threads + " threads x " + iterations + " iterations...");
+            out("This may take a few seconds.");
+
+            system.getAuditLog().logAsync("STRESS_TEST_START",
+                    system.getCurrentUser(), "stress-test",
+                    "threads=" + threads + " iterations=" + iterations);
+
+            try {
+                StressTest test   = new StressTest(threads, iterations);
+                StressTestResult result = test.run();
+
+                System.out.println("\n" + result.format());
+
+                system.getAuditLog().logAsync("STRESS_TEST_DONE",
+                        system.getCurrentUser(), "stress-test",
+                        "passed=" + result.isPassed());
+
+            } catch (InterruptedException e) {
+                out("Stress test interrupted: " + e.getMessage());
+                Thread.currentThread().interrupt();
+            }
+        });
+    }
+
+    private static int parsePositive(String input, int defaultValue) {
+        if (input == null || input.isBlank()) return defaultValue;
+        try {
+            int val = Integer.parseInt(input.trim());
+            return val > 0 ? val : defaultValue;
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
     }
 }
