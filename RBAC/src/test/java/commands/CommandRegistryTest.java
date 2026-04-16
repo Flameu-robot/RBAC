@@ -3,6 +3,8 @@ package commands;
 import org.example.system.RBACSystem;
 import org.example.system.commands.CommandParser;
 import org.example.system.commands.CommandRegistry;
+import org.example.utils.ConsoleGuard;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,13 +22,24 @@ class CommandRegistryTest {
 
     @BeforeEach
     void setUp() {
+        ConsoleGuard.disable();
+
         parser = new CommandParser();
         system = new RBACSystem();
         system.initialize();
+        system.getScheduledTaskService().shutdown();
+
         CommandRegistry.registerAll(parser);
 
         outputStream = new ByteArrayOutputStream();
         System.setOut(new PrintStream(outputStream));
+    }
+
+    @AfterEach
+    void tearDown() {
+        system.shutdown();
+        ConsoleGuard.endInput();
+        ConsoleGuard.enable();
     }
 
     private String getOutput() {
@@ -107,7 +120,7 @@ class CommandRegistryTest {
     void userDeleteConfirmed() {
         execute("user-create", "todelete\nTo Delete\ndel@mail.com\n");
         outputStream.reset();
-        execute("user-delete", "todelete\nда\n");
+        execute("user-delete", "todelete\ny\n");
         assertTrue(getOutput().contains("deleted"));
         assertFalse(system.getUserManager().exists("todelete"));
     }
@@ -116,7 +129,7 @@ class CommandRegistryTest {
     void userDeleteCancelled() {
         execute("user-create", "tokeep\nTo Keep\nkeep@mail.com\n");
         outputStream.reset();
-        execute("user-delete", "tokeep\nнет\n");
+        execute("user-delete", "tokeep\nn\n");
         assertTrue(getOutput().contains("Cancelled"));
         assertTrue(system.getUserManager().exists("tokeep"));
     }
@@ -174,14 +187,14 @@ class CommandRegistryTest {
 
     @Test
     void roleCreateSuccess() {
-        execute("role-create", "Tester\nTest role\nнет\n");
+        execute("role-create", "Tester\nTest role\nn\n");
         assertTrue(getOutput().contains("created"));
         assertTrue(system.getRoleManager().exists("Tester"));
     }
 
     @Test
     void roleCreateWithPermission() {
-        execute("role-create", "Tester\nTest role\nда\nREAD\nfiles\nRead files\nнет\n");
+        execute("role-create", "Tester\nTest role\ny\nREAD\nfiles\nRead files\nn\n");
         String output = getOutput();
         assertTrue(output.contains("created"));
         assertTrue(output.contains("Permission added"));
@@ -189,7 +202,7 @@ class CommandRegistryTest {
 
     @Test
     void roleCreateDuplicate() {
-        execute("role-create", "Admin\nDuplicate\nнет\n");
+        execute("role-create", "Admin\nDuplicate\nn\n");
         assertTrue(getOutput().contains("Error"));
     }
 
@@ -223,25 +236,25 @@ class CommandRegistryTest {
 
     @Test
     void roleDeleteUnassigned() {
-        execute("role-create", "ToDelete\nTemp role\nнет\n");
+        execute("role-create", "ToDelete\nTemp role\nn\n");
         outputStream.reset();
-        execute("role-delete", "ToDelete\nда\n");
+        execute("role-delete", "ToDelete\ny\n");
         assertTrue(getOutput().contains("deleted"));
         assertFalse(system.getRoleManager().exists("ToDelete"));
     }
 
     @Test
     void roleDeleteCancelled() {
-        execute("role-create", "ToKeep\nKeep role\nнет\n");
+        execute("role-create", "ToKeep\nKeep role\nn\n");
         outputStream.reset();
-        execute("role-delete", "ToKeep\nнет\n");
+        execute("role-delete", "ToKeep\nn\n");
         assertTrue(getOutput().contains("Cancelled"));
         assertTrue(system.getRoleManager().exists("ToKeep"));
     }
 
     @Test
     void roleDeleteAssignedShowsWarning() {
-        execute("role-delete", "Admin\nнет\n");
+        execute("role-delete", "Admin\nn\n");
         String output = getOutput();
         assertTrue(output.contains("WARNING"));
         assertTrue(output.contains("admin"));
@@ -284,8 +297,7 @@ class CommandRegistryTest {
     @Test
     void roleSearchByMinPermissions() {
         execute("role-search", "3\n5\n");
-        String output = getOutput();
-        assertTrue(output.contains("Admin"));
+        assertTrue(getOutput().contains("Admin"));
     }
 
     @Test
@@ -464,8 +476,7 @@ class CommandRegistryTest {
     @Test
     void clearProducesOutput() {
         execute("clear", "");
-        String output = getOutput();
-        assertTrue(output.length() > 40);
+        assertTrue(getOutput().length() > 40);
     }
 
     @Test

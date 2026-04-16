@@ -5,11 +5,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class ConsoleGuard {
 
     private static final AtomicBoolean inputActive = new AtomicBoolean(false);
+    private static final AtomicBoolean enabled     = new AtomicBoolean(true);
 
     private ConsoleGuard() {}
 
+    public static void enable()  { enabled.set(true); }
+    public static void disable() { enabled.set(false); }
+
     public static void beginInput() {
-        inputActive.set(true);
+        if (enabled.get()) inputActive.set(true);
     }
 
     public static void endInput() {
@@ -17,11 +21,11 @@ public class ConsoleGuard {
     }
 
     public static boolean isInputActive() {
-        return inputActive.get();
+        return enabled.get() && inputActive.get();
     }
 
     public static void backgroundPrintln(String message) {
-        if (!inputActive.get()) {
+        if (!isInputActive()) {
             System.out.println(message);
         }
     }
